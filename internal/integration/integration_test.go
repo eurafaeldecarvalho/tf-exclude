@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -416,18 +418,20 @@ func TestScale2000(t *testing.T) {
 		t.Fatalf("excluded %v", payload.Excluded)
 	}
 
-	_, stderr, code := run(t, dir, tfExcludeBin, "plan", "-input=false", "-lock=false", "-out=scale.tfplan", "-exclude=terraform_data.skip")
+	stdout, stderr, code := run(t, dir, tfExcludeBin, "plan", "-input=false", "-lock=false", "-out=scale.tfplan", "-exclude=terraform_data.skip")
 	if code != 0 && strings.Contains(stderr, "refusing -out") {
-		_, stderr, code = run(t, dir, tfExcludeBin, "plan", "-input=false", "-lock=false", "-exclude=terraform_data.skip")
+		// Terraform's plan summary is on stdout. tf-exclude's batch notice is on stderr.
+		stdout, stderr, code = run(t, dir, tfExcludeBin, "plan", "-input=false", "-lock=false", "-exclude=terraform_data.skip")
+		combined := stdout + "\n" + stderr
 		if code != 0 {
-			t.Fatalf("batched plan failed (%d)\n%s", code, stderr)
+			t.Fatalf("batched plan failed (%d)\n%s", code, combined)
 		}
 		if !strings.Contains(stderr, "invocations") {
 			t.Fatalf("expected batching notice, stderr:\n%s", stderr)
 		}
-		adds := sumPlanAdds(stderr)
+		adds := sumPlanAdds(combined)
 		if adds != 1999 {
-			t.Fatalf("batched plan adds = %d, want 1999\n%s", adds, stderr)
+			t.Fatalf("batched plan adds = %d, want 1999\nstdout:\n%s\nstderr:\n%s", adds, stdout, stderr)
 		}
 		return
 	}
@@ -479,17 +483,21 @@ resource "terraform_data" "skip" {}
 	}
 }
 
+var planAddsRE = regexp.MustCompile(`Plan:\s+(\d+) to add`)
+
 func sumPlanAdds(s string) int {
 	total := 0
 	for _, line := range strings.Split(s, "\n") {
 		line = stripANSI(strings.TrimSpace(line))
-		if !strings.HasPrefix(line, "Plan:") {
+		m := planAddsRE.FindStringSubmatch(line)
+		if m == nil {
 			continue
 		}
-		var add, change, destroy int
-		if _, err := fmt.Sscanf(line, "Plan: %d to add, %d to change, %d to destroy.", &add, &change, &destroy); err == nil {
-			total += add
+		n, err := strconv.Atoi(m[1])
+		if err != nil {
+			continue
 		}
+		total += n
 	}
 	return total
 }

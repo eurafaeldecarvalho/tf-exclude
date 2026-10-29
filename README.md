@@ -128,6 +128,8 @@ go test ./...
 go test -tags=integration -count=1 ./...   # needs terraform; tofu for the parity cases
 ```
 
+The module still says Go 1.22. CI compiles with Go 1.23 because current macOS refuses binaries built by Go 1.22 (`dyld: missing LC_UUID load command`). A release binary for macOS needs that newer toolchain too.
+
 Integration tests run real `terraform` and, when `tofu` is on `PATH`, real OpenTofu. They use `terraform_data` only. Set `TF_EXCLUDE_REQUIRE_TERRAFORM=1` or `TF_EXCLUDE_REQUIRE_TOFU=1` to fail instead of skip when a binary is missing. CI runs Terraform 1.5.7, 1.9.8, and 1.17.1, plus OpenTofu 1.13.2, and a 2,000-resource plan that has to survive the command-line limit.
 
 ## Project
