@@ -8,6 +8,10 @@ On a 200-resource local configuration, excluding `terraform_data.db` (and the on
 tf-exclude plan -exclude terraform_data.db
 ```
 
+The clip below is a real run of `targets` and `plan -exclude` on [`testdata/demo`](testdata/demo) (5 resources: `db`, `app` which depends on it, `api`, and `web` with `count = 2`). It is not the 200-resource measurement.
+
+![tf-exclude targets and plan -exclude on testdata/demo](docs/demo.gif)
+
 Reproduce the numbers with `./scripts/prova.sh` (Terraform ≥ 1.4, OpenTofu ≥ 1.9, no cloud credentials). The run that produced the figures below was hyperfine 1.19.0, 1 warmup and 5 runs, on Terraform v1.17.1 and OpenTofu v1.13.2.
 
 ```text
@@ -72,13 +76,15 @@ OpenTofu has had native `-exclude` since 1.9. Terraform 1.17.1 (latest release o
 
 ## Quickstart
 
-No account. From a checkout (this repository is private and has no release yet, so `go install …@latest` will not resolve until a tag exists):
+No account. `terraform` must be on your `PATH`. On 2026-10-29, `go install github.com/eurafaeldecarvalho/tf-exclude@latest` installed the latest commit on `main` from the public module.
 
 ```sh
-go build -o tf-exclude .
-./tf-exclude targets -exclude 'aws_db_instance.main'
-./tf-exclude plan -exclude 'aws_db_instance.main'
+go install github.com/eurafaeldecarvalho/tf-exclude@latest
+tf-exclude targets -exclude 'aws_db_instance.main'
+tf-exclude plan -exclude 'aws_db_instance.main'
 ```
+
+`tf-exclude version` prints `dev` until a tagged release is published. To build a checkout instead: `go build -o tf-exclude .`
 
 `apply` and `destroy` do not add `-auto-approve`. Terraform asks, unless you passed `-auto-approve` yourself. `--dry-run` prints the `terraform` command and does not run that final step. The preliminary plan still runs; it is read-only.
 
