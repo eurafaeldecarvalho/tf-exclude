@@ -1,0 +1,10 @@
+bin/
+dist/
+*.exe
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log

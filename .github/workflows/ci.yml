@@ -1,0 +1,127 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.22.x"
+
+      - name: gofmt
+        if: runner.os == 'Linux'
+        run: test -z "$(gofmt -l .)"
+
+      - name: go vet
+        run: go vet ./...
+
+      # v0.5.1 is the last staticcheck release that builds with Go 1.22.
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@v0.5.1
+          staticcheck ./...
+
+      - name: unit tests
+        run: go test ./...
+
+  integration:
+    name: terraform ${{ matrix.terraform }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        terraform: ["1.5.7", "1.9.8", "1.17.1"]
+        include:
+          - os: macos-latest
+            terraform: "1.17.1"
+          - os: windows-latest
+            terraform: "1.17.1"
+    steps:
+      - name: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.22.x"
+
+      - name: setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+
+      - name: integration tests
+        env:
+          TF_EXCLUDE_REQUIRE_TERRAFORM: "1"
+          CHECKPOINT_DISABLE: "1"
+        run: go test -tags=integration -count=1 -timeout 40m ./...
+
+  opentofu:
+    name: opentofu parity
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.22.x"
+
+      - name: setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.17.1"
+          terraform_wrapper: false
+
+      - name: setup OpenTofu
+        uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
+        with:
+          tofu_version: "1.13.2"
+          tofu_wrapper: false
+
+      - name: parity tests
+        env:
+          TF_EXCLUDE_REQUIRE_TERRAFORM: "1"
+          TF_EXCLUDE_REQUIRE_TOFU: "1"
+          CHECKPOINT_DISABLE: "1"
+        run: go test -tags=integration -count=1 -timeout 40m ./...
+
+  pr-limit:
+    name: open PR limit
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: at most 3 open pull requests per author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          n=$(gh api "repos/${REPO}/pulls?state=open&per_page=100" --jq "[.[] | select(.user.login==\"${ACTOR}\")] | length")
+          echo "${ACTOR} has ${n} open pull request(s)"
+          if [ "${n}" -gt 3 ]; then
+            echo "Limit is 3 open pull requests per person. See CONTRIBUTING.md."
+            exit 1
+          fi

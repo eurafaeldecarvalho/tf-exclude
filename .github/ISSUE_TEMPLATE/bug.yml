@@ -1,0 +1,39 @@
+name: Bug
+description: tf-exclude and Terraform disagreed, or a command failed
+title: "bug: "
+labels: []
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `tf-exclude version` and `terraform version`
+      placeholder: tf-exclude dev / Terraform v1.17.1
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The tf-exclude command, with secrets removed
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Minimal configuration
+      description: A local terraform_data example if you can make one. Do not include cloud credentials.
+    validations:
+      required: false
