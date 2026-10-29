@@ -1,0 +1,45 @@
+version: 2
+
+project_name: tf-exclude
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tf-exclude
+    main: .
+    binary: tf-exclude
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: eurafaeldecarvalho
+    name: tf-exclude
+  mode: replace
+
+# GitHub Release assets only. No Homebrew, Scoop, Docker, or other registries.
